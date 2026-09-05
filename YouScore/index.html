@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YouScore — Реєстраційні дані контрагента</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --success: #16a34a;
+    --success-bg: #f0fdf4;
+    --danger: #dc2626;
+    --danger-bg: #fef2f2;
+    --warn: #d97706;
+    --warn-bg: #fffbeb;
+    --gray-bg: #f8fafc;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --text-muted: #64748b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  header {
+    background: #fff;
+    border-radius: 16px;
+    padding: 28px 32px;
+    box-shadow: 0 4px 20px rgba(30, 41, 59, 0.06);
+    margin-bottom: 20px;
+  }
+  header h1 {
+    margin: 0 0 8px;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  header h1 .logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: var(--primary);
+    color: #fff;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 16px;
+  }
+  header p {
+    margin: 4px 0;
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 28px 32px;
+    box-shadow: 0 4px 20px rgba(30, 41, 59, 0.06);
+    margin-bottom: 20px;
+  }
+  .search-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .search-row input {
+    flex: 1;
+    min-width: 220px;
+    padding: 14px 16px;
+    font-size: 16px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .search-row input:focus {
+    border-color: var(--primary);
+  }
+  .search-row button {
+    padding: 14px 28px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--primary);
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background .15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .search-row button:hover { background: var(--primary-dark); }
+  .search-row button:disabled { background: #94a3b8; cursor: not-allowed; }
+  .hint {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 10px;
+  }
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    display: none;
+  }
+  button.loading .spinner { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #result { display: none; }
+
+  .status-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 18px 20px;
+    border-radius: 12px;
+    margin-bottom: 22px;
+    font-size: 15px;
+  }
+  .status-banner.ok { background: var(--success-bg); border: 1px solid #bbf7d0; }
+  .status-banner.error { background: var(--danger-bg); border: 1px solid #fecaca; }
+  .status-banner.warn { background: var(--warn-bg); border: 1px solid #fde68a; }
+  .status-banner .icon {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    color: #fff;
+  }
+  .status-banner.ok .icon { background: var(--success); }
+  .status-banner.error .icon { background: var(--danger); }
+  .status-banner.warn .icon { background: var(--warn); }
+  .status-banner .msg strong { display: block; margin-bottom: 2px; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+
+  .section {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    background: var(--gray-bg);
+  }
+  .section h3 {
+    margin: 0 0 12px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--text-muted);
+  }
+  .field { margin-bottom: 8px; font-size: 14px; line-height: 1.4; }
+  .field .label { color: var(--text-muted); }
+  .field .value { font-weight: 600; }
+  .full-width { grid-column: 1 / -1; }
+
+  ul.plain { margin: 0; padding-left: 18px; }
+  ul.plain li { margin-bottom: 6px; font-size: 14px; }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: #dcfce7; color: #166534; }
+  .badge.red { background: #fee2e2; color: #991b1b; }
+
+  details {
+    margin-top: 18px;
+  }
+  details summary {
+    cursor: pointer;
+    color: var(--primary);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 6px 0;
+  }
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 16px;
+    border-radius: 10px;
+    overflow-x: auto;
+    font-size: 12.5px;
+    max-height: 500px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1><span class="logo">YS</span>YouScore — перевірка реєстраційних даних</h1>
+    <p><strong>Призначення:</strong> внутрішній інструмент для спеціалістів підтримки. Дозволяє швидко зробити запит до методу
+      <em>«Реєстраційні дані» (Registration data)</em> API YouScore за кодом ЄДРПОУ юридичної особи / РНОКПП ФОП
+      і побачити повний результат перевірки — як позитивний (компанія знайдена, дані актуальні), так і негативний
+      (компанія не знайдена, ліквідована, у стані припинення, некоректний код тощо).</p>
+    <p>Дані беруться напряму з Єдиного державного реєстру (ЄДР) через офіційний API YouControl / YouScore.</p>
+  </header>
+
+  <div class="card">
+    <div class="search-row">
+      <input id="codeInput" type="text" placeholder="Введіть код ЄДРПОУ або РНОКПП, напр. 39404434" autocomplete="off" inputmode="numeric">
+      <button id="searchBtn">
+        <span class="spinner"></span>
+        <span class="btnText">Перевірити</span>
+      </button>
+    </div>
+    <div class="hint">Натисніть Enter або кнопку «Перевірити», щоб надіслати запит до YouScore API.</div>
+  </div>
+
+  <div id="result" class="card"></div>
+
+</div>
+
+<script>
+  // API key lives server-side in the Cloudflare Worker proxy (see worker/),
+  // not here - update this URL after deploying the worker.
+  const PROXY_BASE_URL = "https://youscore-proxy.<your-subdomain>.workers.dev";
+  const input = document.getElementById("codeInput");
+  const btn = document.getElementById("searchBtn");
+  const resultBox = document.getElementById("result");
+
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") runSearch(); });
+  btn.addEventListener("click", runSearch);
+
+  function esc(str) {
+    if (str === null || str === undefined || str === "") return "—";
+    const div = document.createElement("div");
+    div.textContent = String(str);
+    return div.innerHTML;
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return "—";
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString("uk-UA", { year: "numeric", month: "long", day: "numeric" });
+    } catch { return esc(iso); }
+  }
+
+  async function runSearch() {
+    const code = input.value.trim();
+    if (!code) {
+      input.focus();
+      return;
+    }
+    btn.disabled = true;
+    btn.classList.add("loading");
+    resultBox.style.display = "none";
+
+    const url = `${PROXY_BASE_URL}/usr/${encodeURIComponent(code)}?showCurrentData=false`;
+
+    try {
+      const resp = await fetch(url, { headers: { accept: "application/json" } });
+      let body = null;
+      try { body = await resp.json(); } catch (_) { body = null; }
+
+      if (resp.ok) {
+        renderSuccess(body);
+      } else {
+        renderError(resp.status, body);
+      }
+    } catch (err) {
+      renderNetworkError(err);
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove("loading");
+      resultBox.style.display = "block";
+    }
+  }
+
+  function banner(type, iconChar, title, text) {
+    return `<div class="status-banner ${type}">
+      <div class="icon">${iconChar}</div>
+      <div class="msg"><strong>${title}</strong>${text}</div>
+    </div>`;
+  }
+
+  function renderError(status, body) {
+    let title = `Помилка запиту (HTTP ${status})`;
+    let text = "Не вдалося отримати дані.";
+    let type = "error";
+    let icon = "!";
+
+    if (status === 400) {
+      title = "Некоректний код";
+      text = body && body.message ? esc(body.message) : "Введений код ЄДРПОУ/РНОКПП має невірний формат.";
+    } else if (status === 404) {
+      title = "Контрагента не знайдено";
+      text = "За вказаним кодом інформацію в Єдиному державному реєстрі не знайдено.";
+    } else if (status === 429) {
+      title = "Перевищено ліміт запитів";
+      text = "Забагато запитів за короткий проміжок часу. Спробуйте ще раз трохи пізніше.";
+      type = "warn"; icon = "⏱";
+    } else if (status === 401 || status === 403) {
+      title = "Помилка авторизації";
+      text = "Проблема з API-ключем доступу до YouScore.";
+    }
+
+    resultBox.innerHTML = banner(type, icon, title, `<div>${text}</div>`) + rawJsonBlock(body);
+  }
+
+  function renderNetworkError(err) {
+    resultBox.innerHTML = banner("error", "!", "Помилка з'єднання",
+      `<div>Не вдалося звʼязатися з сервером YouScore: ${esc(err.message)}</div>`);
+  }
+
+  function renderSuccess(data) {
+    if (!data) {
+      resultBox.innerHTML = banner("warn", "?", "Порожня відповідь", "<div>Сервер повернув успішний статус, але без даних.</div>");
+      return;
+    }
+
+    const isTerminated = data.terminationStatus || (data.status && /припинен/i.test(data.status) && !/не перебуває/i.test(data.status));
+    const statusOk = !isTerminated;
+
+    let html = "";
+
+    html += banner(
+      statusOk ? "ok" : "warn",
+      statusOk ? "✓" : "!",
+      statusOk ? "Дані знайдено — контрагент активний" : "Дані знайдено — зверніть увагу на статус",
+      `<div>${esc(data.status)}</div>`
+    );
+
+    html += `<div class="grid">`;
+
+    // Основна інформація
+    html += section("Основна інформація", [
+      ["Повна назва", data.name && data.name.fullName],
+      ["Скорочена назва", data.name && data.name.shortName],
+      ["Код ЄДРПОУ / РНОКПП", data.code],
+      ["Тип контрагента", data.contractorType],
+      ["Організаційно-правова форма", data.legalForm],
+      ["Керівний орган", data.superiorManagement],
+    ]);
+
+    // Статус і реєстрація
+    html += section("Статус та реєстрація", [
+      ["Поточний статус", data.status],
+      ["Дата актуальності даних", fmtDate(data.actualDate)],
+      ["Дата реєстрації", data.registrationAfterLaw && fmtDate(data.registrationAfterLaw.entryDate)],
+      ["Номер запису", data.registrationAfterLaw && data.registrationAfterLaw.entryNumber],
+      ["Орган реєстрації (перше знайдене)", data.authorityInfo],
+    ]);
+
+    // Адреса та контакти
+    html += section("Адреса та контакти", [
+      ["Юридична адреса", data.address],
+      ["Телефон", data.contacts && data.contacts.phone],
+      ["Email", data.contacts && data.contacts.email],
+      ["Веб-сайт", data.contacts && data.contacts.webSite],
+    ]);
+
+    // Статутний капітал
+    html += section("Статутний капітал", [
+      ["Сума", data.foundingCapital && data.foundingCapital.sum != null ? data.foundingCapital.sum + " грн" : null],
+      ["Дата", data.foundingCapital && fmtDate(data.foundingCapital.date)],
+    ]);
+
+    // Основний вид діяльності
+    if (data.mainEconomicActivity) {
+      html += section("Основний вид діяльності (КВЕД)", [
+        ["Код", data.mainEconomicActivity.code],
+        ["Опис", data.mainEconomicActivity.description],
+      ]);
+    }
+
+    // Усі види діяльності
+    if (Array.isArray(data.economicActivities) && data.economicActivities.length) {
+      html += `<div class="section full-width"><h3>Усі види діяльності</h3><ul class="plain">`;
+      data.economicActivities.forEach(a => {
+        html += `<li>${a.isMain ? '<span class="badge green">основний</span> ' : ''}<strong>${esc(a.code)}</strong> — ${esc(a.description)}</li>`;
+      });
+      html += `</ul></div>`;
+    }
+
+    // Керівники / підписанти
+    if (Array.isArray(data.signers) && data.signers.length) {
+      html += `<div class="section full-width"><h3>Керівники / підписанти</h3><ul class="plain">`;
+      data.signers.forEach(s => {
+        html += `<li><strong>${esc(s.name)}</strong> — ${esc(s.role)}</li>`;
+      });
+      html += `</ul></div>`;
+    }
+
+    // Засновники
+    if (Array.isArray(data.founders) && data.founders.length) {
+      html += `<div class="section full-width"><h3>Засновники</h3><ul class="plain">`;
+      data.founders.forEach(f => {
+        const capital = f.capital != null ? ` (внесок: ${f.capital} грн)` : "";
+        html += `<li><strong>${esc(f.name)}</strong>${esc(f.address) !== "—" ? ", " + esc(f.address) : ""}${capital}</li>`;
+      });
+      html += `</ul></div>`;
+    }
+
+    // Негативні фактори
+    const negatives = [];
+    if (data.bankruptcyStatus) negatives.push("Наявна інформація про банкрутство: " + esc(data.bankruptcyStatus));
+    if (data.terminationStatus) negatives.push("Компанія перебуває у стані припинення: " + esc(data.terminationStatus));
+    if (data.deadOrMissingManagerInfo) negatives.push("Є відомості про померлого/зниклого керівника");
+    if (data.beneficiariesGeneralInfo && data.beneficiariesGeneralInfo.isMissing) negatives.push("Відсутня інформація про кінцевих бенефіціарів");
+
+    if (negatives.length) {
+      html += `<div class="section full-width" style="background:var(--danger-bg); border-color:#fecaca;"><h3 style="color:var(--danger)">Зверніть увагу (негативні фактори)</h3><ul class="plain">`;
+      negatives.forEach(n => html += `<li>${n}</li>`);
+      html += `</ul></div>`;
+    }
+
+    html += `</div>`; // grid
+
+    resultBox.innerHTML = html + rawJsonBlock(data);
+  }
+
+  function section(title, fields) {
+    const rows = fields
+      .filter(([, v]) => v !== undefined)
+      .map(([label, value]) => `<div class="field"><span class="label">${esc(label)}: </span><span class="value">${esc(value)}</span></div>`)
+      .join("");
+    if (!rows) return "";
+    return `<div class="section"><h3>${esc(title)}</h3>${rows}</div>`;
+  }
+
+  function rawJsonBlock(data) {
+    if (!data) return "";
+    return `<details><summary>Показати повну відповідь API (JSON)</summary><pre>${esc(JSON.stringify(data, null, 2))}</pre></details>`;
+  }
+</script>
+</body>
+</html>

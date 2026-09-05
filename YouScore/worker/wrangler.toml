@@ -1,0 +1,11 @@
+name = "youscore-proxy"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+# Restrict CORS to the GitHub Pages origin that serves the frontend.
+# Adjust if the page is served from a different URL (e.g. a custom domain).
+ALLOWED_ORIGIN = "https://pavelschurenko-boop.github.io"
+
+# YOUSCORE_API_KEY is a secret, not set here.
+# Set it with: wrangler secret put YOUSCORE_API_KEY
