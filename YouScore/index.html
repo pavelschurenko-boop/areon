@@ -271,19 +271,28 @@
     resultBox.style.display = "none";
 
     const url = `${PROXY_BASE_URL}/usr/${encodeURIComponent(code)}?showCurrentData=false`;
+    const meta = { url, method: "GET", requestedAt: new Date() };
+    const startedAt = performance.now();
 
     try {
       const resp = await fetch(url, { headers: { accept: "application/json" } });
+      meta.durationMs = Math.round(performance.now() - startedAt);
+      meta.status = resp.status;
+      meta.statusText = resp.statusText;
+      meta.headers = [...resp.headers.entries()];
+
       let body = null;
       try { body = await resp.json(); } catch (_) { body = null; }
 
       if (resp.ok) {
-        renderSuccess(body);
+        renderSuccess(body, meta);
       } else {
-        renderError(resp.status, body);
+        renderError(resp.status, body, meta);
       }
     } catch (err) {
-      renderNetworkError(err);
+      meta.durationMs = Math.round(performance.now() - startedAt);
+      meta.errorName = err.name;
+      renderNetworkError(err, meta);
     } finally {
       btn.disabled = false;
       btn.classList.remove("loading");
@@ -298,7 +307,41 @@
     </div>`;
   }
 
-  function renderError(status, body) {
+  function techInfoBlock(meta) {
+    if (!meta) return "";
+    const rows = [
+      ["Метод", meta.method],
+      ["URL запиту (проксі)", meta.url],
+      ["Надіслано", meta.requestedAt ? meta.requestedAt.toLocaleTimeString("uk-UA") : null],
+      ["Час виконання", meta.durationMs != null ? meta.durationMs + " мс" : null],
+    ];
+    if (meta.status != null) {
+      rows.push(["HTTP статус", `${meta.status}${meta.statusText ? " " + meta.statusText : ""}`]);
+    }
+    if (meta.errorName) {
+      rows.push(["Тип помилки", meta.errorName]);
+    }
+
+    const rowsHtml = rows
+      .filter(([, v]) => v !== undefined && v !== null && v !== "")
+      .map(([label, value]) => `<div class="field"><span class="label">${esc(label)}: </span><span class="value">${esc(value)}</span></div>`)
+      .join("");
+
+    let headersHtml = "";
+    if (Array.isArray(meta.headers) && meta.headers.length) {
+      const headerText = meta.headers.map(([k, v]) => `${k}: ${v}`).join("\n");
+      headersHtml = `<div style="margin-top:10px;">
+        <div class="label" style="font-size:13px; margin-bottom:4px;">Заголовки відповіді:</div>
+        <pre style="max-height:220px;">${esc(headerText)}</pre>
+      </div>`;
+    }
+
+    return `<details><summary>Технічна інформація про запит (HTTP, заголовки, час виконання)</summary>
+      <div class="section" style="margin-top:10px;">${rowsHtml}${headersHtml}</div>
+    </details>`;
+  }
+
+  function renderError(status, body, meta) {
     let title = `Помилка запиту (HTTP ${status})`;
     let text = "Не вдалося отримати дані.";
     let type = "error";
@@ -319,17 +362,17 @@
       text = "Проблема з API-ключем доступу до YouScore.";
     }
 
-    resultBox.innerHTML = banner(type, icon, title, `<div>${text}</div>`) + rawJsonBlock(body);
+    resultBox.innerHTML = banner(type, icon, title, `<div>${text}</div>`) + techInfoBlock(meta) + rawJsonBlock(body);
   }
 
-  function renderNetworkError(err) {
+  function renderNetworkError(err, meta) {
     resultBox.innerHTML = banner("error", "!", "Помилка з'єднання",
-      `<div>Не вдалося звʼязатися з сервером YouScore: ${esc(err.message)}</div>`);
+      `<div>Не вдалося звʼязатися з сервером YouScore: ${esc(err.message)}</div>`) + techInfoBlock(meta);
   }
 
-  function renderSuccess(data) {
+  function renderSuccess(data, meta) {
     if (!data) {
-      resultBox.innerHTML = banner("warn", "?", "Порожня відповідь", "<div>Сервер повернув успішний статус, але без даних.</div>");
+      resultBox.innerHTML = banner("warn", "?", "Порожня відповідь", "<div>Сервер повернув успішний статус, але без даних.</div>") + techInfoBlock(meta);
       return;
     }
 
@@ -431,7 +474,7 @@
 
     html += `</div>`; // grid
 
-    resultBox.innerHTML = html + rawJsonBlock(data);
+    resultBox.innerHTML = html + techInfoBlock(meta) + rawJsonBlock(data);
   }
 
   function section(title, fields) {

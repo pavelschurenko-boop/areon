@@ -20,6 +20,10 @@ export default {
       "Access-Control-Allow-Origin": allowedOrigin,
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
+      // Without this, the browser only exposes the CORS-safelisted response
+      // headers to JS (e.g. Content-Type) - the frontend's technical-details
+      // panel needs the rest (rate-limit headers, CF-Ray, etc.) too.
+      "Access-Control-Expose-Headers": "*",
     };
 
     if (request.method === "OPTIONS") {
@@ -57,13 +61,24 @@ export default {
       return json({ message: "Upstream request failed", detail: String(err) }, 502, corsHeaders);
     }
 
+    // Forward every header YouScore actually sent (status code, rate-limit
+    // headers, CF-Ray, etc.) instead of just Content-Type, so the client
+    // sees the real upstream response, not a trimmed-down version of it.
+    const responseHeaders = new Headers(corsHeaders);
+    const HOP_BY_HOP = new Set(["content-encoding", "content-length", "transfer-encoding", "connection"]);
+    for (const [key, value] of upstreamResp.headers.entries()) {
+      if (HOP_BY_HOP.has(key.toLowerCase())) continue;
+      responseHeaders.set(key, value);
+    }
+    if (!responseHeaders.has("Content-Type")) {
+      responseHeaders.set("Content-Type", "application/json");
+    }
+
     const body = await upstreamResp.text();
     return new Response(body, {
       status: upstreamResp.status,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": upstreamResp.headers.get("Content-Type") || "application/json",
-      },
+      statusText: upstreamResp.statusText,
+      headers: responseHeaders,
     });
   },
 };
