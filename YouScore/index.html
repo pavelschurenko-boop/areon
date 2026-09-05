@@ -224,10 +224,18 @@
       <input id="codeInput" type="text" placeholder="Введіть код ЄДРПОУ або РНОКПП, напр. 39404434" autocomplete="off" inputmode="numeric">
       <button id="searchBtn">
         <span class="spinner"></span>
-        <span class="btnText">Перевірити</span>
+        <span class="btnText">Реєстраційні дані</span>
+      </button>
+      <button id="vatBtn">
+        <span class="spinner"></span>
+        <span class="btnText">Податкові дані (ПДВ)</span>
+      </button>
+      <button id="licensesBtn">
+        <span class="spinner"></span>
+        <span class="btnText">Ліцензії</span>
       </button>
     </div>
-    <div class="hint">Натисніть Enter або кнопку «Перевірити», щоб надіслати запит до YouScore API.</div>
+    <div class="hint">Натисніть Enter або кнопку «Реєстраційні дані», щоб надіслати запит до YouScore API. «Податкові дані (ПДВ)» перевіряє статус платника ПДВ, «Ліцензії» показує наявні ліцензії контрагента.</div>
   </div>
 
   <div id="result" class="card"></div>
@@ -240,10 +248,15 @@
   const PROXY_BASE_URL = "https://youscore-proxy.pavel-schurenko.workers.dev";
   const input = document.getElementById("codeInput");
   const btn = document.getElementById("searchBtn");
+  const vatBtn = document.getElementById("vatBtn");
+  const licensesBtn = document.getElementById("licensesBtn");
+  const allButtons = [btn, vatBtn, licensesBtn];
   const resultBox = document.getElementById("result");
 
-  input.addEventListener("keydown", (e) => { if (e.key === "Enter") runSearch(); });
-  btn.addEventListener("click", runSearch);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") runSearch("usr"); });
+  btn.addEventListener("click", () => runSearch("usr"));
+  vatBtn.addEventListener("click", () => runSearch("vat"));
+  licensesBtn.addEventListener("click", () => runSearch("licenses"));
 
   function esc(str) {
     if (str === null || str === undefined || str === "") return "—";
@@ -260,17 +273,20 @@
     } catch { return esc(iso); }
   }
 
-  async function runSearch() {
+  async function runSearch(endpoint) {
     const code = input.value.trim();
     if (!code) {
       input.focus();
       return;
     }
-    btn.disabled = true;
-    btn.classList.add("loading");
+    const activeBtn = endpoint === "vat" ? vatBtn : endpoint === "licenses" ? licensesBtn : btn;
+    allButtons.forEach((b) => { b.disabled = true; });
+    activeBtn.classList.add("loading");
     resultBox.style.display = "none";
 
-    const url = `${PROXY_BASE_URL}/usr/${encodeURIComponent(code)}?showCurrentData=false`;
+    const url = endpoint === "licenses"
+      ? `${PROXY_BASE_URL}/licenses?contractorCode=${encodeURIComponent(code)}`
+      : `${PROXY_BASE_URL}/${endpoint}/${encodeURIComponent(code)}?showCurrentData=false`;
     const meta = { url, method: "GET", requestedAt: new Date() };
     const startedAt = performance.now();
 
@@ -284,8 +300,16 @@
       let body = null;
       try { body = await resp.json(); } catch (_) { body = null; }
 
-      if (resp.ok) {
-        renderSuccess(body, meta);
+      if (resp.status === 202) {
+        renderUpdating(meta, body);
+      } else if (resp.ok) {
+        if (endpoint === "vat") {
+          renderVatSuccess(body, meta);
+        } else if (endpoint === "licenses") {
+          renderLicensesSuccess(body, meta);
+        } else {
+          renderSuccess(body, meta);
+        }
       } else {
         renderError(resp.status, body, meta);
       }
@@ -294,8 +318,8 @@
       meta.errorName = err.name;
       renderNetworkError(err, meta);
     } finally {
-      btn.disabled = false;
-      btn.classList.remove("loading");
+      allButtons.forEach((b) => { b.disabled = false; });
+      activeBtn.classList.remove("loading");
       resultBox.style.display = "block";
     }
   }
@@ -368,6 +392,12 @@
   function renderNetworkError(err, meta) {
     resultBox.innerHTML = banner("error", "!", "Помилка з'єднання",
       `<div>Не вдалося звʼязатися з сервером YouScore: ${esc(err.message)}</div>`) + techInfoBlock(meta);
+  }
+
+  function renderUpdating(meta, body) {
+    resultBox.innerHTML = banner("warn", "⏳", "Дані оновлюються",
+      "<div>YouScore оновлює дані для цього контрагента (HTTP 202). Спробуйте повторити запит трохи пізніше.</div>"
+    ) + techInfoBlock(meta) + rawJsonBlock(body);
   }
 
   function renderSuccess(data, meta) {
@@ -473,6 +503,66 @@
     }
 
     html += `</div>`; // grid
+
+    resultBox.innerHTML = html + techInfoBlock(meta) + rawJsonBlock(data);
+  }
+
+  function renderVatSuccess(data, meta) {
+    if (!data) {
+      resultBox.innerHTML = banner("warn", "?", "Порожня відповідь", "<div>Сервер повернув успішний статус, але без даних.</div>") + techInfoBlock(meta);
+      return;
+    }
+
+    let html = banner("ok", "✓", "Дані про ПДВ отримано", `<div>${esc(data.note)}</div>`);
+
+    html += `<div class="grid">`;
+    html += section("Платник ПДВ", [
+      ["ІПН платника ПДВ", data.code],
+      ["Дата реєстрації", fmtDate(data.registrationDate)],
+      ["Примітка", data.note],
+      ["Дата актуальності даних", fmtDate(data.actualDate)],
+    ]);
+    html += `</div>`;
+
+    resultBox.innerHTML = html + techInfoBlock(meta) + rawJsonBlock(data);
+  }
+
+  function renderLicensesSuccess(data, meta) {
+    if (!data) {
+      resultBox.innerHTML = banner("warn", "?", "Порожня відповідь", "<div>Сервер повернув успішний статус, але без даних.</div>") + techInfoBlock(meta);
+      return;
+    }
+
+    const results = Array.isArray(data.results) ? data.results : [];
+    const total = data.totalResults != null ? data.totalResults : results.length;
+
+    let html = banner(
+      total > 0 ? "ok" : "warn",
+      total > 0 ? "✓" : "!",
+      total > 0 ? `Знайдено ліцензій: ${esc(total)}` : "Ліцензій не знайдено",
+      total > 0 && data.nextPageUrl
+        ? `<div>Показано ${results.length} із ${esc(total)} (є ще записи, дивіться "nextPageUrl" у сирій відповіді).</div>`
+        : ""
+    );
+
+    if (results.length) {
+      html += `<div class="section full-width"><h3>Ліцензії</h3><ul class="plain">`;
+      results.forEach((l) => {
+        const badge = l.isActive
+          ? '<span class="badge green">діюча</span>'
+          : '<span class="badge red">недіюча</span>';
+        const name = l.licenseName || l.typeOfActivity || "Без назви";
+        const period = `${fmtDate(l.licenseRelevantFrom)} — ${fmtDate(l.licenseRelevantTo)}`;
+        html += `<li>${badge} <strong>${esc(name)}</strong> (№ ${esc(l.licenseId)})<br>
+          <span class="label">Вид діяльності:</span> ${esc(l.typeOfActivity)}<br>
+          <span class="label">Реєстр:</span> ${esc(l.registryName)}<br>
+          <span class="label">Орган, що видав:</span> ${esc(l.licenser)}<br>
+          <span class="label">Термін дії:</span> ${period}
+          ${l.contractorLicenseAddress ? `<br><span class="label">Адреса:</span> ${esc(l.contractorLicenseAddress)}` : ""}
+        </li>`;
+      });
+      html += `</ul></div>`;
+    }
 
     resultBox.innerHTML = html + techInfoBlock(meta) + rawJsonBlock(data);
   }

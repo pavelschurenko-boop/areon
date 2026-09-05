@@ -35,7 +35,10 @@ Copy that URL into `PROXY_BASE_URL` near the top of the `<script>` block in
   (`https://pavelschurenko-boop.github.io`). Update it if the page moves to a
   different URL or custom domain.
 - The worker validates the contractor code is numeric before forwarding it,
-  and only proxies `GET /usr/{code}` - it won't forward arbitrary paths or
-  query params to the upstream API.
+  and only proxies `GET /usr/{code}` (registration data), `GET /vat/{code}`
+  (VAT payer status), and `GET /licenses?contractorCode={code}` (licenses,
+  with optional `top`/`skip`/`registers`/`onlyActive` passed through after
+  validation) - it won't forward arbitrary paths or query params to the
+  upstream API.
 - If the YouScore API key ever needs to be rotated, just re-run
   `wrangler secret put YOUSCORE_API_KEY` - no frontend change needed.
