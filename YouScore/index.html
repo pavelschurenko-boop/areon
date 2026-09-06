@@ -557,8 +557,10 @@
           <span class="label">Вид діяльності:</span> ${esc(l.typeOfActivity)}<br>
           <span class="label">Реєстр:</span> ${esc(l.registryName)}<br>
           <span class="label">Орган, що видав:</span> ${esc(l.licenser)}<br>
-          <span class="label">Термін дії:</span> ${period}
+          <span class="label">Термін дії:</span> ${period}<br>
+          <span class="label">Дата актуальності:</span> ${fmtDate(l.dateOfRelevance)}
           ${l.contractorLicenseAddress ? `<br><span class="label">Адреса:</span> ${esc(l.contractorLicenseAddress)}` : ""}
+          ${l.url ? `<br><span class="label">Джерело:</span> ${esc(l.url)}` : ""}
         </li>`;
       });
       html += `</ul></div>`;
