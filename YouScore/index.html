@@ -185,7 +185,6 @@
   }
   .badge.green { background: #dcfce7; color: #166534; }
   .badge.red { background: #fee2e2; color: #991b1b; }
-  .badge.amber { background: #fef3c7; color: #92400e; }
 
   details {
     margin-top: 18px;
@@ -235,12 +234,12 @@
         <span class="spinner"></span>
         <span class="btnText">Ліцензії</span>
       </button>
-      <button id="rrBtn">
+      <button id="historyBtn">
         <span class="spinner"></span>
-        <span class="btnText">Перереєстрація в РФ</span>
+        <span class="btnText">Історія змін</span>
       </button>
     </div>
-    <div class="hint">Натисніть Enter або кнопку «Реєстраційні дані», щоб надіслати запит до YouScore API. «Податкові дані (ПДВ)» перевіряє статус платника ПДВ, «Ліцензії» показує наявні ліцензії контрагента, «Перереєстрація в РФ» перевіряє контрагента щодо перереєстрації компанії на території РФ.</div>
+    <div class="hint">Натисніть Enter або кнопку «Реєстраційні дані», щоб надіслати запит до YouScore API. «Податкові дані (ПДВ)» перевіряє статус платника ПДВ, «Ліцензії» показує наявні ліцензії контрагента, «Історія змін» показує історію змін найменування, контактної інформації, керівників, основного виду діяльності, засновників та статутного капіталу.</div>
   </div>
 
   <div id="result" class="card"></div>
@@ -255,15 +254,15 @@
   const btn = document.getElementById("searchBtn");
   const vatBtn = document.getElementById("vatBtn");
   const licensesBtn = document.getElementById("licensesBtn");
-  const rrBtn = document.getElementById("rrBtn");
-  const allButtons = [btn, vatBtn, licensesBtn, rrBtn];
+  const historyBtn = document.getElementById("historyBtn");
+  const allButtons = [btn, vatBtn, licensesBtn, historyBtn];
   const resultBox = document.getElementById("result");
 
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") runSearch("usr"); });
   btn.addEventListener("click", () => runSearch("usr"));
   vatBtn.addEventListener("click", () => runSearch("vat"));
   licensesBtn.addEventListener("click", () => runSearch("licenses"));
-  rrBtn.addEventListener("click", () => runSearch("russian-reregistration"));
+  historyBtn.addEventListener("click", () => runSearch("history"));
 
   function esc(str) {
     if (str === null || str === undefined || str === "") return "—";
@@ -288,7 +287,7 @@
     }
     const activeBtn = endpoint === "vat" ? vatBtn
       : endpoint === "licenses" ? licensesBtn
-      : endpoint === "russian-reregistration" ? rrBtn
+      : endpoint === "history" ? historyBtn
       : btn;
     allButtons.forEach((b) => { b.disabled = true; });
     activeBtn.classList.add("loading");
@@ -296,8 +295,8 @@
 
     const url = endpoint === "licenses"
       ? `${PROXY_BASE_URL}/licenses?contractorCode=${encodeURIComponent(code)}`
-      : endpoint === "russian-reregistration"
-      ? `${PROXY_BASE_URL}/russian-reregistration/${encodeURIComponent(code)}`
+      : endpoint === "history"
+      ? `${PROXY_BASE_URL}/history/${encodeURIComponent(code)}`
       : `${PROXY_BASE_URL}/${endpoint}/${encodeURIComponent(code)}?showCurrentData=false`;
     const meta = { url, method: "GET", requestedAt: new Date() };
     const startedAt = performance.now();
@@ -319,8 +318,8 @@
           renderVatSuccess(body, meta);
         } else if (endpoint === "licenses") {
           renderLicensesSuccess(body, meta);
-        } else if (endpoint === "russian-reregistration") {
-          renderRussianReregistrationSuccess(body, meta);
+        } else if (endpoint === "history") {
+          renderHistorySuccess(body, meta);
         } else {
           renderSuccess(body, meta);
         }
@@ -583,51 +582,43 @@
     resultBox.innerHTML = html + techInfoBlock(meta) + rawJsonBlock(data);
   }
 
-  const RR_TERRITORY_TYPE_DESC = {
-    1: "Ймовірно, українська юридична особа або її засновник/учасник, кінцевий бенефіціарний власник чи уповноважена особа є засновником/учасником юридичної особи, зареєстрованої за законодавством РФ.",
-    2: "На тимчасово окупованій території України за законодавством РФ зареєстровано аналогічну юридичну особу.",
-  };
+  function fmtHistoryValue(v) {
+    if (v === null || v === undefined || v === "") return "—";
+    if (typeof v === "object") return esc(JSON.stringify(v));
+    return esc(v);
+  }
 
-  function renderRussianReregistrationSuccess(data, meta) {
+  function renderHistorySuccess(data, meta) {
     if (!data) {
       resultBox.innerHTML = banner("warn", "?", "Порожня відповідь", "<div>Сервер повернув успішний статус, але без даних.</div>") + techInfoBlock(meta);
       return;
     }
 
-    const records = Array.isArray(data.records) ? data.records : [];
-    const hasLinks = records.length > 0;
-    const hasActiveLink = records.some((r) => r.relation && /актуальн/i.test(r.relation));
+    // Exact field/array names aren't confirmed for this endpoint yet, so
+    // look for the first array field under a few likely names instead of
+    // hard-depending on one - the raw JSON below always has the full shape.
+    const recordsKey = ["records", "history", "changes", "items"].find((k) => Array.isArray(data[k]));
+    const records = recordsKey ? data[recordsKey] : [];
+    const hasHistory = records.length > 0;
 
     let html = banner(
-      hasLinks ? (hasActiveLink ? "error" : "warn") : "ok",
-      hasLinks ? "!" : "✓",
-      hasLinks ? `Виявлено зв'язки з юридичними особами РФ: ${records.length}` : "Зв'язків з юридичними особами РФ не виявлено",
+      hasHistory ? "ok" : "warn",
+      hasHistory ? "✓" : "?",
+      hasHistory ? `Знайдено записів історії: ${records.length}` : "Записів історії не знайдено",
       `<div>Код контрагента: ${esc(data.contractorCode)}</div>`
     );
 
-    if (hasLinks) {
-      html += `<div class="section full-width"><h3>Знайдені зв'язки</h3><ul class="plain">`;
+    if (hasHistory) {
+      html += `<div class="section full-width"><h3>Історія змін</h3><ul class="plain">`;
       records.forEach((r) => {
-        const isActual = r.relation && /актуальн/i.test(r.relation);
-        const relationBadge = isActual
-          ? '<span class="badge red">актуальний</span>'
-          : '<span class="badge amber">історичний</span>';
-        const territoryDesc = RR_TERRITORY_TYPE_DESC[r.territoryType] || "";
-        const infoEntries = r.info && typeof r.info === "object" ? Object.entries(r.info) : [];
-
-        html += `<li>${relationBadge} <strong>${esc(r.relation)}</strong><br>
-          <span class="label">Дата актуальності:</span> ${esc(r.actualDate)}${r.actualDateDescription ? ` (${esc(r.actualDateDescription)})` : ""}<br>
-          <span class="label">Тип території (${esc(r.territoryType)}):</span> ${esc(territoryDesc)}`;
-
-        if (infoEntries.length) {
-          html += `<br><span class="label">Пов'язані компанії РФ (ОГРН — назва):</span><ul class="plain">`;
-          infoEntries.forEach(([ogrn, name]) => {
-            html += `<li>${esc(ogrn)} — ${esc(name)}</li>`;
-          });
-          html += `</ul>`;
+        if (r === null || typeof r !== "object") {
+          html += `<li>${fmtHistoryValue(r)}</li>`;
+          return;
         }
-
-        html += `</li>`;
+        const rows = Object.entries(r)
+          .map(([k, v]) => `<span class="label">${esc(k)}:</span> ${fmtHistoryValue(v)}`)
+          .join("<br>");
+        html += `<li>${rows}</li>`;
       });
       html += `</ul></div>`;
     }

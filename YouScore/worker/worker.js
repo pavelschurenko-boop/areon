@@ -56,17 +56,18 @@ export default {
       return proxyUpstream(upstreamUrl, corsHeaders);
     }
 
-    // russian-reregistration = "Перереєстрація на території РФ" - checks
-    // whether the contractor re-registered a company in Russia.
-    const rrMatch = url.pathname.match(/^\/russian-reregistration\/([^/]+)$/);
-    if (rrMatch) {
-      const [, rawCode] = rrMatch;
+    // history = "Історія змін" - returns the change history for the
+    // contractor's name, contact info, managers, main economic activity,
+    // founders/participants, and charter capital size.
+    const historyMatch = url.pathname.match(/^\/history\/([^/]+)$/);
+    if (historyMatch) {
+      const [, rawCode] = historyMatch;
       const code = decodeURIComponent(rawCode);
       if (!CODE_PATTERN.test(code)) {
         return json({ message: "Invalid contractor code format" }, 400, corsHeaders);
       }
       const upstreamUrl =
-        `https://api.youscore.com.ua/v1/companies/russian-re-registrations/${encodeURIComponent(code)}` +
+        `https://api.youscore.com.ua/v1/history/${encodeURIComponent(code)}` +
         `?apiKey=${env.YOUSCORE_API_KEY}`;
       return proxyUpstream(upstreamUrl, corsHeaders);
     }
@@ -119,7 +120,7 @@ export default {
       {
         message:
           "Expected path /usr/{contractorCode}, /vat/{contractorCode}, " +
-          "/russian-reregistration/{contractorCode}, or /licenses?contractorCode=...",
+          "/history/{contractorCode}, or /licenses?contractorCode=...",
       },
       400,
       corsHeaders
